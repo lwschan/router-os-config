@@ -1,3 +1,6 @@
+# aug/21/2021 01:00:52 by RouterOS 6.48.3
+# modify line 8 for pppoe password and user
+
 /interface bridge
 add admin-mac=08:55:31:D5:A1:87 auto-mac=no comment=defconf name=bridge
 /interface pppoe-client
@@ -42,18 +45,11 @@ add comment=defconf interface=ether1
 /ip dhcp-server lease
 add address=10.0.0.2 client-id=1:e8:48:b8:42:8f:0 mac-address=\
     E8:48:B8:42:8F:00 server=defconf
-add address=10.0.0.99 client-id=1:4:d9:f5:4:8e:26 mac-address=\
-    04:D9:F5:04:8E:26 server=defconf
 /ip dhcp-server network
 add address=10.0.0.0/24 comment=defconf gateway=10.0.0.1 netmask=24
 /ip dns
-set allow-remote-requests=yes use-doh-server=https://dns.google/dns-query \
-    verify-doh-cert=yes
-/ip dns static
-add address=8.8.8.8 name=dns.google ttl=1h
-add address=8.8.4.4 name=dns.google ttl=1h
-add address=2001:4860:4860::8888 name=dns.google ttl=1h type=AAAA
-add address=2001:4860:4860::8844 name=dns.google ttl=1h type=AAAA
+set allow-remote-requests=yes servers=\
+    8.8.8.8,8.8.4.4,2001:4860:4860::8888,2001:4860:4860::8844
 /ip firewall filter
 add action=accept chain=input comment=\
     "defconf: accept established,related,untracked" connection-state=\
@@ -91,11 +87,18 @@ add action=redirect chain=dstnat comment=\
 /ip service
 set telnet disabled=yes
 set ftp disabled=yes
+set www address=10.0.0.0/24
 set ssh disabled=yes port=2250
 set api disabled=yes
+set winbox address=10.0.0.0/24
 set api-ssl disabled=yes
 /ip ssh
 set strong-crypto=yes
+/ip upnp
+set enabled=yes
+/ip upnp interfaces
+add interface=pppoe-out1 type=external
+add interface=bridge type=internal
 /ipv6 address
 add from-pool=isp interface=bridge
 /ipv6 dhcp-client
@@ -170,48 +173,6 @@ set [ find default=yes ] mtu=1480
 set time-zone-name=Asia/Kuala_Lumpur
 /system ntp client
 set enabled=yes primary-ntp=162.159.200.1 secondary-ntp=162.159.200.123
-/system script
-add dont-require-permissions=no name="Setup Google DNS DoH" owner=lewis \
-    policy=ftp,reboot,read,write,policy,test,password,sniff,sensitive,romon \
-    source="## Google DNS-over-HTTPS DoH script\
-    \n## Apply this script on your default configuration LAB router first\
-    \n## RouterOS 6.47++\
-    \n## Credits Nikita Tarikin <nikita@tarikin.com>\
-    \n## 03.06.2020\
-    \n\
-    \n# Check for valid installed certificate\
-    \n:do {\
-    \n    :do {/tool fetch https://pki.goog/gsr2/GSR2.crt check-certificate=no\
-    } \\\
-    \n        while=([/file print count-only where name=\"GSR2.crt\"]=0);\
-    \n    :do {/certificate import file-name=\"GSR2.crt\" passphrase=\"\" name\
-    =\"GlobalSignRootCAR2.crt\"} \\\
-    \n        while=([/certificate print count-only where name=\"GlobalSignRoo\
-    tCAR2.crt\"]=0);\
-    \n    :do {\
-    \n        # Set static DNS records for dns.google name\
-    \n        /ip dns static add type=A address=8.8.8.8 name=dns.google ttl=1h\
-    \n        /ip dns static add type=A address=8.8.4.4 name=dns.google ttl=1h\
-    \n        /ip dns static add type=AAAA address=2001:4860:4860::8888 name=d\
-    ns.google ttl=1h\
-    \n        /ip dns static add type=AAAA address=2001:4860:4860::8844 name=d\
-    ns.google ttl=1h\
-    \n\
-    \n        # Change DNS servers\
-    \n        /ip dns set servers=\
-    \n        /ip dns set use-doh-server=\"https://dns.google/dns-query\" veri\
-    fy-doh-cert=yes\
-    \n\
-    \n        # Transparent proxy all DNS queries from your LAN through your r\
-    outer towards DoH servers / put this rule on top\
-    \n        :do {/ip firewall nat add chain=dstnat protocol=udp dst-port=53 \
-    in-interface-list=LAN action=redirect comment=\"Transparent proxy all DNS \
-    queries from your LAN\"} \\\
-    \n            if=([/ip dns get allow-remote-requests]=yes)\
-    \n    } while=([/certificate print count-only where fingerprint=\"ca42dd41\
-    745fd0b81eb902362cf9d8bf719da1bd1b1efc946f5b4c99f42c1b9e\"]=0);\
-    \n} if=([/certificate print count-only where name=\"GlobalSignRootCAR2.crt\
-    \"]=0);"
 /tool mac-server
 set allowed-interface-list=LAN
 /tool mac-server mac-winbox
